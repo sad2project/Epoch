@@ -1,4 +1,5 @@
 from datetime import datetime
+from rounding import Sequence
 
 
 class Time:
@@ -262,12 +263,13 @@ def _best_adjustment(num_to_round, acc_adjustment):
 
 def _adjustments_to_nearest_15(num_to_round):
     adjustment_up = _distance_up_to_the_nearest_15(num_to_round)
-    adjustment_down = adjustment_up - 15
+    adjustment_down = adjustment_up - 15 if adjustment_up != 0 else 0
     return adjustment_up, adjustment_down
 
 
 def _distance_up_to_the_nearest_15(num_to_round):
-    nearest_over = 0
-    while nearest_over < num_to_round:
-        nearest_over += 15
-    return nearest_over - num_to_round
+    if num_to_round % 15 == 0:
+        return 0
+    return Sequence(range(1, 15))\
+        .filter(lambda x: ((x + num_to_round) % 15) == 0)\
+        .first

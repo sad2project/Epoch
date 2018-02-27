@@ -1,91 +1,33 @@
-from datetime import datetime
-from rounding import Sequence
+from .rounding import Sequence
+from ._time_parsing import *
+from typing import Union, Callable
+
+
+__all__ = ['Time', 'TLP', 'Timestamp', 'Duration', 'DurationWithAdjustment',
+           'AdjustedDuration']
 
 
 class Time:
-    separator_characters = ['.', ';', ':']
-
-    def __init__(self, hour, minute):
+    def __init__(self, hour: int, minute: int):
         self.hour = hour
         self.minute = minute
 
     @classmethod
-    def from_user_time(cls, user_time, cutoff_config):
-        if user_time.startswith('+') or user_time.startswith('-'):
-            return cls(*_parse_relative_time(user_time))
-        else:
-            return cls(*_parse_absolute_time(user_time, cutoff_config))
+    def from_user_time(cls, user_time: str, cutoff_config: Callable[[int], bool]):
+        return cls(*parse_user_time(user_time, cutoff_config))
 
     @classmethod
-    def now(cls):
-        return cls(*_now())
+    def now(cls) -> 'Time':
+        return cls(*now())
 
+    def __str__(self) -> str:
+        return f'{self.hour}:{self.minute}'
 
-def _parse_relative_time(user_time):
-    minute_adjustment = int(user_time)
-    now_hour, now_minute = _now()
-    adjusted_minute = now_minute + minute_adjustment
-    if adjusted_minute < 0:
-        return now_hour - 1, adjusted_minute + 60
-    if adjusted_minute > 60:
-        return now_hour + 1, adjusted_minute - 60
-    else:
-        return now_hour, adjusted_minute
+    def __eq__(self, other: 'Time') -> bool:
+        return (self.hour, self.minute) == (other.hour, other.minute)
 
-
-def _now():
-    now = datetime.now().time()
-    return now.hour, now.minute
-
-
-def _parse_absolute_time(user_time, cutoff_config):
-    for separator in Time.separator_characters:
-        if separator in user_time:
-            return _parse_absolute_time_with_separator(
-                    user_time,
-                    separator,
-                    cutoff_config)
-    else:
-        raise ValueError("""User time stamp was improperly formatted.
-        enter help --time for help with the time formatting""")
-
-
-def _parse_absolute_time_with_separator(user_time, separator, is_afternoon):
-    hour_str, rest = user_time.split(separator)
-    int_hour = int(hour_str)
-    if rest.isnumeric():
-        return _parse_no_ampm(int_hour, int(rest), is_afternoon)
-    else:
-        return _parse_with_ampm(int_hour, int(rest[:2]), rest[2:].trim())
-
-
-def _parse_no_ampm(hour, minute, is_afternoon):
-    if hour < 12 and is_afternoon(hour):
-        return hour + 12, minute
-    if 0 <= hour < 24:
-        return hour, minute
-    raise ValueError("Invalid hour amount. The hour must be between 0 (inclusively) and 24 (exclusively)")
-
-
-def _parse_with_ampm(hour, minute, ampm):
-    _verify_ampm(ampm)
-    return hour + _adjustment_for_pm(ampm), minute
-
-
-def _verify_ampm(ampm):
-    AMPM = ampm.upper()
-    if len(AMPM) > 2:
-        raise TypeError()
-    if not AMPM.startswith('A') and not AMPM.startswith('P'):
-        raise TypeError()
-    if len(AMPM) == 2 and 'M' not in AMPM:
-        raise TypeError()
-
-
-def _adjustment_for_pm(ampm):
-    return 12 \
-        if 'P' in ampm.upper()\
-        else 0
+    def __add__(self, other: int) -> 'Time':
+        return Time(*fix_under_over(self.hour, self.minute + other))
 
 
 undefined = object()
@@ -93,9 +35,9 @@ undefined = object()
 
 class TLP:
     def __init__(self,
-                 tlp_code,
-                 description,
-                 customer=undefined,
+                 tlp_code: int,
+                 description: str,
+                 customer:=undefined,
                  product=undefined,
                  code=undefined,
                  slg=undefined,
@@ -110,16 +52,16 @@ class TLP:
         self.dlg = dlg
         self.prj = prj
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'TLP'):
         return (self.tlp_code, self.customer, self.product, self.code,
                 self.slg, self.dlg, self.prj) == \
                (other.tlp_code, other.customer, other.product, other.code,
                 other.slg, other.dlg, other.prj)
 
-    def __add__(self, other):
+    def __add__(self, other) -> 'TLP':
         if self != other:
-            raise ValueError("Cannot add/combine two TLGs that have the same " +
-                             "set of values (excluding description)")
+            raise ValueError('Cannot add/combine two TLGs that have the same ' +
+                             'set of values (excluding description)')
         return TLP(
                 self.tlp_code,
                 self.description + "; " + other.description,
@@ -132,41 +74,17 @@ class TLP:
 
 
 class Timestamp:
-    def __init__(self, TLP, time):
+    def __init__(self, tlp: TLP, time: Time):
         self.time = time
-        self.TLP = TLP
+        self.tlp = tlp
 
     def to(self, end_time):
-        return Duration(self.TLP, end_time - self.time)
-
-
-class Duration:
-    def __init__(self, TLP, duration):
-        self.duration = duration
-        self.TLP = TLP
-
-    def has_same_TLP_as(self, other):
-        return self == other
-
-    def __add__(self, other):
-        return Duration(self.TLP + other.TLP, self.duration + other.duration)
-
-    def __eq__(self, other):
-        return self.TLP == other.TLP
-
-    def __hash__(self):
-        return hash(self.TLP)
-
-    def and_accumulated_adjustment(self, adjustment):
-        return DurationWithAdjustment(self.TLP, self.duration, adjustment)
-
-    def with_no_accumulated_adjustment(self):
-        return DurationWithAdjustment(self.TLP, self.duration, 0)
+        return Duration(self.tlp, end_time - self.time)
 
 
 class DurationWithAdjustment:
-    def __init__(self, TLP, duration, acc_adjustment):
-        self.TLP = TLP
+    def __init__(self, tlp, duration, acc_adjustment):
+        self.TLP = tlp
         self.duration = duration
         self.acc_adjustment = acc_adjustment
         self.adjustment = None
@@ -215,6 +133,30 @@ class DurationWithAdjustment:
 
     def __lt__(self, other):
         return self._comparison_key < other._comparison_key
+
+
+class Duration:
+    def __init__(self, tlp: TLP, duration: int):
+        self.duration = duration
+        self.tlp = tlp
+
+    def has_same_tlp_as(self, other: 'Duration') -> bool:
+        return self.tlp == other.tlp
+
+    def __add__(self, other: 'Duration') -> 'Duration':
+        return Duration(self.tlp + other.tlp, self.duration + other.duration)
+
+    def __eq__(self, other) -> bool:
+        return self.tlp == other.TLP
+
+    def __hash__(self) -> int:
+        return hash(self.tlp)
+
+    def and_accumulated_adjustment(self, adjustment: int) -> DurationWithAdjustment:
+        return DurationWithAdjustment(self.tlp, self.duration, adjustment)
+
+    def with_no_accumulated_adjustment(self) -> DurationWithAdjustment:
+        return DurationWithAdjustment(self.tlp, self.duration, 0)
 
 
 class AdjustedDuration:

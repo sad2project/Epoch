@@ -1,7 +1,8 @@
 from datetime import datetime
+from epoch.time_types import Time
 
 
-__all__ = ['parse_user_time', 'now', 'fix_under_over']
+__all__ = ['parse_user_time', 'now']
 
 
 def now():
@@ -24,16 +25,7 @@ def parse_user_time(user_time, pm_cutoff):
 def _parse_relative_time(user_time):
     minute_adjustment = int(user_time)
     now_hour, now_minute = now()
-    return fix_under_over(now_hour, now_minute + minute_adjustment)
-
-
-def fix_under_over(hour, minute):
-    if minute < 0:
-        return fix_under_over(hour - 1, minute + 60)
-    if minute > 60:
-        return fix_under_over(hour + 1, minute - 60)
-    else:
-        return hour, minute
+    return Time.fix_under_over(now_hour, now_minute + minute_adjustment)
 
 
 def _parse_absolute_time(user_time, cutoff_config):

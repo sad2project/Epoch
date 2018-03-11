@@ -1,3 +1,4 @@
+from typing import List
 # Starting Data:
 #
 
@@ -20,3 +21,5 @@ class Sequence:
     @property
     def first(self):
         return next(iter(self.iterable))
+
+

@@ -2,8 +2,6 @@ from typing import List
 # Starting Data:
 #
 
-# TODO: Create a Sequence so I can use the sequence/stream APIs as methods instead of normal
-# ugly functions.
 
 class Sequence:
     def __init__(self, iterable):
@@ -21,5 +19,3 @@ class Sequence:
     @property
     def first(self):
         return next(iter(self.iterable))
-
-

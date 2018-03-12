@@ -1,3 +1,4 @@
+from typing import Callable, Tuple
 from datetime import datetime
 from epoch.time_types import Time
 
@@ -6,8 +7,16 @@ __all__ = ['parse_user_time', 'now']
 
 
 def now():
-    now = datetime.now().time()
-    return now.hour, now.minute
+    now_time: Tuple[int, int] = datetime.now().time()
+    return Time(*now_time)
+
+
+def from_user_time(user_time: str, cutoff_config: Callable[[int], bool]):
+    return Time(*parse_user_time(user_time, cutoff_config))
+
+
+Time.now = staticmethod(now)
+Time.from_user_time = staticmethod(from_user_time)
 
 
 separator_characters = ['.', ';', ':']
@@ -59,14 +68,16 @@ def _verify_no_ampm_hour(hour, is_afternoon):
     elif 0 <= hour < 24:
         return hour
     else:
-        raise ValueError(f"Invalid hour amount, {hour}. Must be between 0 (inclusively) and 24 (exclusively)")
+        raise ValueError(f"Invalid hour amount, {hour}. Must be between 0 "
+                         "(inclusively) and 24 (exclusively)")
 
 
 def _verify_minute(minute):
     if 0 <= minute < 60:
         return minute
     else:
-        raise ValueError(f"Invalid minute amount, {minute}. Must be between 0 (inclusively) and 60 (exclusively)")
+        raise ValueError(f"Invalid minute amount, {minute}. Must be between 0 "
+                         "(inclusively) and 60 (exclusively)")
 
 
 def _parse_with_ampm(hour, minute, ampm):
@@ -79,9 +90,11 @@ def _parse_ampm_hour(hour):
     if 0 < hour <= 12:
         return hour
     else:
-        raise ValueError(f"Invalid hour amount, {hour}. Must be between 0 (inclusively) and 24 (exclusively)")
+        raise ValueError(f"Invalid hour amount, {hour}. Must be between 0 "
+                         "(inclusively) and 24 (exclusively)")
 
 
+# noinspection PyPep8Naming
 def _standardize_ampm(ampm):
     AMPM = ampm.upper()
     if len(AMPM) > 2:

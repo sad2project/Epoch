@@ -1,4 +1,5 @@
-from Epoch.option import DictOption
+# coding=utf-8
+from epoch.option import DictOption
 
 
 class Nickname:

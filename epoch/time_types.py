@@ -1,6 +1,7 @@
-from .rounding import Sequence
-from typing import Callable, Tuple
+# coding=utf-8
+from typing import Tuple
 
+from .rounding import Sequence
 
 __all__ = ['Time', 'TLP', 'TLPLine', 'TLPDuration', 'DurationWithAdjustment',
            'AdjustedTLPDuration']
@@ -22,26 +23,26 @@ class Time:
             return Duration(self.hour - other.hour, self.minute - other.minute)
 
     @property
-    def components(self) -> Tuple[int, int]:
+    def _components(self) -> Tuple[int, int]:
         return self.hour, self.minute
 
     def __str__(self) -> str:
         return f'{self.hour}:{self.minute}'
 
     def __eq__(self, other: 'Time') -> bool:
-        return self.components == other.components
+        return self._components == other._components
 
     def __lt__(self, other: 'Time') -> bool:
-        return self.components < other.components
+        return self._components < other._components
 
     def __gt__(self, other: 'Time') -> bool:
-        return self.components > other.components
+        return self._components > other._components
 
     def __ge__(self, other: 'Time') -> bool:
-        return self.components >= other.components
+        return self._components >= other._components
 
     def __le__(self, other: 'Time') -> bool:
-        return self.components <= other.components
+        return self._components <= other._components
 
     def __hash__(self) -> int:
         return (hash(self.hour) * 19001) ^ (hash(self.minute) * 31)
@@ -75,25 +76,37 @@ fifteen_minutes: 'Minutes' = Minutes(15)
 
 class Duration:
     def __init__(self, hour: int, minute: int):
-        self.modifier, hour, minute = Duration._fix_under_over(hour, minute)
-        self.hour = hour
-        self.minute = minute
+        self.modifier, self.hour, self.minute = Duration._fix_under_over(hour, minute)
 
     @property
     def is_fifteen_minute_interval(self) -> bool:
         return self.minute % 15 == 0
 
     @property
-    def components(self) -> Tuple[int, int]:
+    def _components(self) -> Tuple[int, int]:
         return self.hour * self.modifier, self.minute * self.modifier
 
     @staticmethod
     def _fix_under_over(hour: int, minute: int) -> Tuple[int, int, int]:
-        new_hour, new_min = Time.fix_under_over(hour, minute)
-        if new_hour < 0:
-            return -1, -new_hour, new_min
+        if minute <= -60:
+            return Duration._fix_under_over(hour-1, minute+60)
+        elif minute >= 60:
+            return Duration._fix_under_over(hour+1, minute-60)
         else:
-            return 1, new_hour, new_min
+            return Duration._calc_time_parts(hour, minute)
+
+    @staticmethod
+    def _calc_time_parts(hour: int, minute: int) -> Tuple[int, int, int]:
+        if minute < 0 and hour > 0:
+            return 1, hour-1, minute+60
+        elif minute > 0 and hour < 0:
+            return -1, hour+1, minute-60
+        elif minute == 0 and hour == 0:
+            return 1, 0, 0
+        elif minute <= 0 and hour <= 0:
+            return -1, -hour, -minute
+        else:
+            return 1, hour, minute
 
     def with_accumulated_adjustment(self, acc_adjustment):
         return DurationWithAdjustment(self, acc_adjustment)
@@ -144,22 +157,22 @@ class Duration:
             return opening + f'{self.hour} hours {self.minute} mins'
 
     def __eq__(self, other: 'Duration') -> bool:
-        return self.components == other.components
+        return self._components == other._components
 
     def __hash__(self) -> int:
         return (hash(self.hour) * 19001) ^ (hash(self.minute) * 31)
 
     def __add__(self, other: 'Duration') -> 'Duration':
-        s_hour, s_min = self.components
-        o_hour, o_min = other.components
+        s_hour, s_min = self._components
+        o_hour, o_min = other._components
 
         return Duration(*Time.fix_under_over(
                 s_hour + o_hour,
                 s_min + o_min))
 
     def __sub__(self, other: 'Duration') -> 'Duration':
-        s_hour, s_min = self.components
-        o_hour, o_min = other.components
+        s_hour, s_min = self._components
+        o_hour, o_min = other._components
 
         return Duration(*Time.fix_under_over(
             s_hour - o_hour,
@@ -167,6 +180,9 @@ class Duration:
 
     def __abs__(self) -> 'Duration':
         return Duration(self.hour, self.minute)
+
+    def __neg__(self) -> 'Duration':
+        return Duration(*self._components)
 
 
 class DurationWithAdjustment:

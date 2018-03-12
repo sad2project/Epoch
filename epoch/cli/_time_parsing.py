@@ -1,7 +1,8 @@
-from typing import Callable, Tuple
+# coding=utf-8
 from datetime import datetime
-from epoch.time_types import Time
+from typing import Callable, Tuple
 
+from epoch.time_types import Time
 
 __all__ = ['parse_user_time', 'now']
 

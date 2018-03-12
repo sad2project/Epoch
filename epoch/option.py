@@ -1,3 +1,4 @@
+# coding=utf-8
 class Optional:
     def __init__(self):
         raise TypeError("Cannot instantiate Optional directly. Use Optional.empty, Optional.full(), or Option.ofNullable()")

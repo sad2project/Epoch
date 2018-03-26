@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Callable, Tuple
 
-from epoch.time_types import Time
+from epoch.time import Time
 
 __all__ = ['parse_user_time', 'now']
 

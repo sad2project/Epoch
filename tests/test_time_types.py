@@ -1,7 +1,8 @@
 import pytest
 from hamcrest import *
-from epoch.time_types import *
+
 from epoch.cli._time_parsing import _standardize_ampm
+from epoch.time import *
 
 
 def cutoff_time(hour):

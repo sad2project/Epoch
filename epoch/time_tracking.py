@@ -1,6 +1,7 @@
 # coding=utf-8
-from .time import *
+from typing import Dict
 
+from .time import *
 
 undefined = object()
 
@@ -65,13 +66,22 @@ class TLPDuration:
     def has_same_tlp_as(self, other: 'TLPDuration') -> bool:
         return self.tlp == other.tlp
 
+    def with_adjustment_from(
+            self, adjustment_lookup: Dict[TLP, int]
+            ) -> 'AdjustedTLPDuration':
+        try:
+            adjustment = adjustment_lookup[self.tlp]
+            return self.with_accum_adjustment(adjustment)
+        except KeyError:
+            return self.with_no_accum_adjustment()
+
     def with_accum_adjustment(
-            self, adjustment: int) -> 'TLPDurationWithAdjustment':
-        return TLPDurationWithAdjustment(
+            self, adjustment: int) -> 'AdjustedTLPDuration':
+        return AdjustedTLPDuration(
             self.tlp,
             self.duration.with_accumulated_adjustment(Minutes(adjustment)))
 
-    def with_no_accum_adjustment(self) -> 'TLPDurationWithAdjustment':
+    def with_no_accum_adjustment(self) -> 'AdjustedTLPDuration':
         return self.with_accum_adjustment(0)
 
     def __add__(self, other: 'TLPDuration') -> 'TLPDuration':
@@ -82,13 +92,6 @@ class TLPDuration:
 
     def __hash__(self) -> int:
         return hash(self.tlp)
-
-
-class TLPDurationWithAdjustment:
-    def __init__(
-            self, tlp: TLP, duration_with_adjustment: DurationWithAdjustment):
-        self.tlp = tlp
-        self.duration_with_adjustment = duration_with_adjustment
 
 
 class AdjustedTLPDuration:

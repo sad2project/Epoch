@@ -2,37 +2,45 @@
 # Starting Data:
 #
 from _collections_abc import Iterable as IterableABC
+from functools import partial
 from itertools import tee
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Callable
 
+from .functions import *
 from .time_tracking import *
 
 
-class Sequence:
+class Stream:
     def __init__(self, iterable: Iterable):
-        if isinstance(iterable, Sequence):
+        if isinstance(iterable, Stream):
             self.iterable = iterable.iterable
         else:
             self.iterable = iterable
 
     def map(self, func):
-        return Sequence(map(func, self.iterable))
+        return Stream(map(func, self.iterable))
 
     def filter(self, func):
-        return Sequence(filter(func, self.iterable))
+        return Stream(filter(func, self.iterable))
 
     def zip(self, *others):
-        return Sequence(zip(self.iterable, *(other.iterable for other in others)))
+        return Stream(zip(self.iterable, *(other.iterable for other in others)))
 
     def tee(self):
         iters = tee(self.iterable)
-        return (Sequence(iter) for iter in iters)
+        return (Stream(iter) for iter in iters)
+
+    def pipe(self, value):
+        intermediate = value
+        for func in self.iterable:
+            intermediate = func(intermediate)
+        return intermediate
 
     def skip_first(self):
         try:
             temp = self.iterable
             next(iter(temp))
-            return Sequence(temp)
+            return Stream(temp)
         except StopIteration:
             return self
 
@@ -44,16 +52,57 @@ class Sequence:
         return next(iter(self.iterable))
 
 
-IterableABC.register(Sequence)
+IterableABC.register(Stream)
+
+
+def full_workflow(
+        tlp_lines: Iterable[TLPLine],
+        adjustment_lookup: Dict[TLP, int],
+        do_travel_time: bool,
+        do_first_time: bool,
+        do_full_day: bool,
+        plugins: Iterable[Callable[[AdjustedTLPDuration], AdjustedTLPDuration]]
+        ) -> Iterable[AdjustedTLPDuration]:
+    return Stream(plugins).pipe(
+        pipe(basic_workflow, tlp_lines, adjustment_lookup)
+        .then(do_if(do_travel_time, travel_time_adjustment))
+        .then(do_if(do_first_time, first_time_adjustment))
+        .then(do_if(do_full_day, full_day_adjustment)))
+
+
+def travel_time_adjustment(adjusted_tlps):
+    # TODO
+    return adjusted_tlps
+
+
+def first_time_adjustment(adjusted_tlps):
+    # TODO
+    nonlocal adjustment_lookup
+
+    return adjusted_tlps
+
+
+def full_day_adjustment(adjusted_tlps):
+    # TODO
+    return adjusted_tlps
+
+
+def basic_workflow(
+        tlp_lines: Iterable[TLPLine],
+        adjustment_lookup: Dict[TLP, int]
+        ) -> Iterable[AdjustedTLPDuration]:
+    return (pipe(times_to_durations, tlp_lines)
+            .then(combine_tlp_durations)
+            .then_post(add_adjustments, adjustment_lookup))
 
 
 def times_to_durations(tlp_lines: Iterable[TLPLine]) -> Iterable[TLPDuration]:
-    orig, offset = Sequence(tlp_lines).tee()
+    orig, offset = Stream(tlp_lines).tee()
     return (orig.zip(offset.skip_first())
             .map(_combine_to_duration))
 
 
-def _combine_to_duration(times: Tuple[TLPLine,TLPLine]) -> TLPDuration:
+def _combine_to_duration(times: Tuple[TLPLine, TLPLine]) -> TLPDuration:
     return times[0].to_next(times[1])
 
 
@@ -67,4 +116,21 @@ def combine_tlp_durations(
             tlps[tlp] += tlp_duration
         else:
             tlps[tlp] = tlp_duration
-    return Sequence(tlps.items())
+    return Stream(tlps.items())
+
+
+def add_adjustments(
+        adj_lookup: Dict[TLP, int],
+        tlp_durations: Iterable[TLPDuration]
+        ) -> Iterable[AdjustedTLPDuration]:
+    return (Stream(tlp_durations)
+            .map(_add_adjustment(adj_lookup)))
+
+
+# noinspection PyTypeChecker
+def _add_adjustment(
+        adj_lookup: Dict[TLP, int]
+        ) -> Callable[[TLPDuration], AdjustedTLPDuration]:
+    return partial(
+        TLPDuration.with_adjustment_from,
+        adjustment_lookup=adj_lookup)

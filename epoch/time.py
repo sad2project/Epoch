@@ -1,7 +1,7 @@
 # coding=utf-8
 from typing import Tuple
 
-from .rounding import Sequence
+from .rounding import Stream
 
 __all__ = ['Time', 'Minutes', 'fifteen_minutes', 'Duration', 'DurationWithAdjustment', 'AdjustedDuration']
 
@@ -107,8 +107,8 @@ class Duration:
         else:
             return 1, hour, minute
 
-    def with_accumulated_adjustment(self, acc_adjustment):
-        return DurationWithAdjustment(self, acc_adjustment)
+    def with_accumulated_adjustment(self, acc_adjustment: 'Duration') -> 'AdjustedDuration':
+        return DurationWithAdjustment(self, acc_adjustment).adjust()
 
     def distance_to_nearest_15(
             self, acc_adjustment: 'Duration'=Minutes(0)) -> 'Duration':
@@ -132,7 +132,7 @@ class Duration:
     def distance_up_to_nearest_15(self) -> 'Duration':
         if self.is_fifteen_minute_interval:
             return Minutes(0)
-        return (Sequence(range(1, 15))
+        return (Stream(range(1, 15))
                 .map(Minutes)
                 .map(self.__add__)
                 .filter(Duration.is_fifteen_minute_interval)
@@ -142,7 +142,7 @@ class Duration:
     def distance_down_to_nearest_15(self):
         if self.is_fifteen_minute_interval:
             return Minutes(0)
-        return (Sequence(range(1, 15))
+        return (Stream(range(1, 15))
                 .map(Minutes)
                 .map(self.__sub__)
                 .filter(Duration.is_fifteen_minute_interval)
@@ -190,22 +190,10 @@ class DurationWithAdjustment:
         self.acc_adjustment = acc_adjustment
         self.adjustment: Duration = None
 
-    def with_best_adjustment(self) -> 'AdjustedDuration':
+    def adjust(self) -> 'AdjustedDuration':
         return AdjustedDuration(
                 self.duration,
                 self.duration.distance_to_nearest_15(self.acc_adjustment),
-                self.acc_adjustment)
-
-    def force_round_up(self) -> 'AdjustedDuration':
-        return AdjustedDuration(
-                self.duration,
-                self.duration.distance_up_to_nearest_15,
-                self.acc_adjustment)
-
-    def force_round_down(self) -> 'AdjustedDuration':
-        return AdjustedDuration(
-                self.duration,
-                self.duration.distance_down_to_nearest_15,
                 self.acc_adjustment)
 
 
@@ -249,6 +237,3 @@ def _best_adjustment(
         return adjustment_up
     else:
         return adjustment_down
-
-
-

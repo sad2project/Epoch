@@ -30,7 +30,7 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="_collections_abc.Iterable.register" />
-          <option value="typing.Iterable.iterable" />
+          <option value="_collections_abc.Callable.register" />
         </list>
       </option>
     </inspection_tool>

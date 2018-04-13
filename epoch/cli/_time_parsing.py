@@ -1,5 +1,6 @@
 # coding=utf-8
 from datetime import datetime
+from re import fullmatch, IGNORECASE
 from typing import Callable, Tuple
 
 from epoch.time import Time
@@ -8,8 +9,8 @@ __all__ = ['parse_user_time', 'now']
 
 
 def now():
-    now_time: Tuple[int, int] = datetime.now().time()
-    return Time(*now_time)
+    now_time: datetime.time = datetime.now().time()
+    return now_time.hour, now_time.minute
 
 
 def from_user_time(user_time: str, cutoff_config: Callable[[int], bool]):
@@ -97,14 +98,10 @@ def _parse_ampm_hour(hour):
 
 # noinspection PyPep8Naming
 def _standardize_ampm(ampm):
-    AMPM = ampm.upper()
-    if len(AMPM) > 2:
+    match = fullmatch("[AP][M]?", ampm, IGNORECASE)
+    if match is None:
         raise ValueError(f'"{ampm}" is an invalid AM/PM indicator')
-    elif not AMPM.startswith('A') and not AMPM.startswith('P'):
-        raise ValueError(f'"{ampm}" is an invalid AM/PM indicator')
-    elif len(AMPM) == 2 and 'M' not in AMPM:
-        raise ValueError(f'"{ampm}" is an invalid AM/PM indicator')
-    return AMPM[0]
+    return ampm[0].upper()
 
 
 def _adjustment_for_pm(ampm):

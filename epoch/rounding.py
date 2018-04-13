@@ -1,58 +1,11 @@
 # coding=utf-8
 # Starting Data:
 #
-from _collections_abc import Iterable as IterableABC
 from functools import partial
-from itertools import tee
-from typing import Iterable, Tuple, Callable
+from typing import Tuple, Callable
 
 from .functions import *
 from .time_tracking import *
-
-
-class Stream:
-    def __init__(self, iterable: Iterable):
-        if isinstance(iterable, Stream):
-            self.iterable = iterable.iterable
-        else:
-            self.iterable = iterable
-
-    def map(self, func):
-        return Stream(map(func, self.iterable))
-
-    def filter(self, func):
-        return Stream(filter(func, self.iterable))
-
-    def zip(self, *others):
-        return Stream(zip(self.iterable, *(other.iterable for other in others)))
-
-    def tee(self):
-        iters = tee(self.iterable)
-        return (Stream(iter) for iter in iters)
-
-    def pipe(self, value):
-        intermediate = value
-        for func in self.iterable:
-            intermediate = func(intermediate)
-        return intermediate
-
-    def skip_first(self):
-        try:
-            temp = self.iterable
-            next(iter(temp))
-            return Stream(temp)
-        except StopIteration:
-            return self
-
-    def __iter__(self):
-        return iter(self.iterable)
-
-    @property
-    def first(self):
-        return next(iter(self.iterable))
-
-
-IterableABC.register(Stream)
 
 
 def full_workflow(
@@ -77,7 +30,7 @@ def travel_time_adjustment(adjusted_tlps):
 
 def first_time_adjustment(adjusted_tlps):
     # TODO
-    nonlocal adjustment_lookup
+    # nonlocal adjustment_lookup
 
     return adjusted_tlps
 

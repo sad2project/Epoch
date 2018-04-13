@@ -1,7 +1,7 @@
 import pytest
 from hamcrest import *
 
-from epoch.cli._time_parsing import _standardize_ampm
+from epoch.cli._time_parsing import _standardize_ampm, from_user_time, now
 from epoch.time import *
 
 
@@ -17,29 +17,31 @@ def relative(request):
 
 
 def test_relative_time(relative):
-    relative_int = int(relative)
-    result = Time.from_user_time(str(relative), cutoff_time(7))
+    relative_dur = Minutes(int(relative))
+    expected = Time(*now()) + relative_dur
 
-    assert_that(result, equal_to(Time.now() + relative_int))
+    result = from_user_time(relative, cutoff_time(7))
+
+    assert_that(result, equal_to(expected))
 
 
 def test_24_hour():
     time_text = "14:34"
-    result = Time.from_user_time(time_text, cutoff_time(7))
+    result = from_user_time(time_text, cutoff_time(7))
 
     assert_that(result, equal_to(Time(14, 34)))
 
 
 def test_cutoff_after():
     time_text = "7:15"
-    result = Time.from_user_time(time_text, cutoff_time(7))
+    result = from_user_time(time_text, cutoff_time(7))
 
     assert_that(result, equal_to(Time(7, 15)))
 
 
 def test_cutoff_before():
     time_text = "6:59"
-    result = Time.from_user_time(time_text, cutoff_time(7))
+    result = from_user_time(time_text, cutoff_time(7))
 
     assert_that(result, equal_to(Time(18, 59)))
 
@@ -47,7 +49,7 @@ def test_cutoff_before():
 def test_rejects_bad_time1():
     time_text = "24:10"
     try:
-        result = Time.from_user_time(time_text, cutoff_time(7))
+        result = from_user_time(time_text, cutoff_time(7))
         raise AssertionError("Expected to see a ValueError that the time is invalid")
     except ValueError:
         pass
@@ -56,7 +58,7 @@ def test_rejects_bad_time1():
 def test_rejects_bad_time2():
     time_text = "12:62"
     try:
-        result = Time.from_user_time(time_text, cutoff_time(7))
+        result = from_user_time(time_text, cutoff_time(7))
         raise AssertionError(f"Expected to see a ValueError that the time is invalid, but got {result}")
     except ValueError:
         pass
@@ -65,7 +67,7 @@ def test_rejects_bad_time2():
 def test_rejects_bad_ampm1():
     time_text = "13:30AM"
     try:
-        result = Time.from_user_time(time_text, cutoff_time(7))
+        result = from_user_time(time_text, cutoff_time(7))
         raise AssertionError(f"Expected to see a ValueError that the time is invalid, but got {result}")
     except ValueError:
         pass
@@ -74,7 +76,7 @@ def test_rejects_bad_ampm1():
 def test_rejects_bad_ampm2():
     time_text = "12:70AM"
     try:
-        result = Time.from_user_time(time_text, cutoff_time(7))
+        result = from_user_time(time_text, cutoff_time(7))
         raise AssertionError(f"Expected to see a ValueError that the time is invalid, but got {result}")
     except ValueError:
         pass
@@ -83,7 +85,7 @@ def test_rejects_bad_ampm2():
 def test_rejects_bad_ampm3():
     time_text = "13:30AM"
     try:
-        result = Time.from_user_time(time_text, cutoff_time(7))
+        result = from_user_time(time_text, cutoff_time(7))
         raise AssertionError(f"Expected to see a ValueError that the time is invalid, but got {result}")
     except ValueError:
         pass
@@ -91,14 +93,14 @@ def test_rejects_bad_ampm3():
 
 def test_dot_separator():
     time_text = "12.10"
-    result = Time.from_user_time(time_text, cutoff_time(7))
+    result = from_user_time(time_text, cutoff_time(7))
 
     assert_that(result, equal_to(Time(12, 10)))
 
 
 def test_semicolon_separator():
     time_text = "4;15"
-    result = Time.from_user_time(time_text, cutoff_time(7))
+    result = from_user_time(time_text, cutoff_time(7))
 
     assert_that(result, equal_to(Time(16, 15)))
 

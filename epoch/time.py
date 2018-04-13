@@ -1,7 +1,7 @@
 # coding=utf-8
 from typing import Tuple
 
-from .rounding import Stream
+from epoch.functions import Stream
 
 __all__ = ['Time', 'Minutes', 'fifteen_minutes', 'Duration', 'DurationWithAdjustment', 'AdjustedDuration']
 
@@ -47,14 +47,16 @@ class Time:
         return (hash(self.hour) * 19001) ^ (hash(self.minute) * 31)
 
     def __add__(self, other: 'Duration') -> 'Time':
+        o_hour, o_minute = other._components
         return Time(*Time.fix_under_over(
-                self.hour + other.hour,
-                self.minute + other.minute))
+                self.hour + o_hour,
+                self.minute + o_minute))
 
     def __sub__(self, other: 'Duration') -> 'Time':
+        o_hour, o_minute = other._components
         return Time(*Time.fix_under_over(
-                self.hour - other.hour,
-                self.minute - other.minute))
+                self.hour - o_hour,
+                self.minute - o_minute))
 
     @staticmethod
     def fix_under_over(hour: int, minute: int):
@@ -64,13 +66,6 @@ class Time:
             return Time.fix_under_over(hour + 1, minute - 60)
         else:
             return hour, minute
-
-
-# noinspection PyPep8Naming
-def Minutes(minute): return Duration(0, minute)
-
-
-fifteen_minutes: 'Minutes' = Minutes(15)
 
 
 class Duration:
@@ -111,7 +106,7 @@ class Duration:
         return DurationWithAdjustment(self, acc_adjustment).adjust()
 
     def distance_to_nearest_15(
-            self, acc_adjustment: 'Duration'=Minutes(0)) -> 'Duration':
+            self, acc_adjustment: 'Duration') -> 'Duration':
         adjustment_up, adjustment_down = self.adjustments_to_nearest_15s
         new_adj_up = acc_adjustment + adjustment_up
         new_adj_down = acc_adjustment + adjustment_down
@@ -182,6 +177,13 @@ class Duration:
 
     def __neg__(self) -> 'Duration':
         return Duration(*self._components)
+
+
+# noinspection PyPep8Naming
+def Minutes(minute): return Duration(0, minute)
+
+
+fifteen_minutes: Minutes = Minutes(15)
 
 
 class DurationWithAdjustment:

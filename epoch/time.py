@@ -3,104 +3,61 @@ from typing import Tuple
 
 from epoch.functions import Stream
 
-__all__ = ['Time', 'Minutes', 'fifteen_minutes', 'Duration', 'DurationWithAdjustment', 'AdjustedDuration']
+__all__ = ['Time', 'Duration', 'DurationWithAdjustment', 'AdjustedDuration']
 
 
 class Time:
     def __init__(self, hour: int, minute: int):
-        hour, minute = Time.fix_under_over(hour, minute)
-        if hour < 0 or hour > 23 or minute < 0:
-            raise AttributeError('Time cannot be negative nor the hour greater '
-                                 'than 23')
-        self.hour = hour
-        self.minute = minute
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            raise AttributeError('Time must a proper time of day')
+        self.minutes = minute + (hour * 60)
 
     def time_between(self, other: 'Time') -> 'Duration':
         if self < other:
-            return Duration(other.hour - self.hour, other.minute - self.minute)
+            return Duration(minutes=(other.minutes - self.minutes))
         else:
-            return Duration(self.hour - other.hour, self.minute - other.minute)
-
-    @property
-    def _components(self) -> Tuple[int, int]:
-        return self.hour, self.minute
+            return Duration(minutes=(self.minutes - other.minutes))
 
     def __str__(self) -> str:
-        return f'{self.hour}:{self.minute}'
+        hour, minute = mins_to_hours_and_mins(self.minutes)
+        return f'{format(hour, "0>2d")}:{format(minute, "0>2d")}'
 
     def __eq__(self, other: 'Time') -> bool:
-        return self._components == other._components
+        return self.minutes == other.minutes
 
     def __lt__(self, other: 'Time') -> bool:
-        return self._components < other._components
+        return self.minutes < other.minutes
 
     def __gt__(self, other: 'Time') -> bool:
-        return self._components > other._components
+        return self.minutes > other.minutes
 
     def __ge__(self, other: 'Time') -> bool:
-        return self._components >= other._components
+        return self.minutes >= other.minutes
 
     def __le__(self, other: 'Time') -> bool:
-        return self._components <= other._components
+        return self.minutes <= other.minutes
 
     def __hash__(self) -> int:
-        return (hash(self.hour) * 19001) ^ (hash(self.minute) * 31)
+        return hash(self.minutes) * 19001
 
     def __add__(self, other: 'Duration') -> 'Time':
-        o_hour, o_minute = other._components
-        return Time(*Time.fix_under_over(
-                self.hour + o_hour,
-                self.minute + o_minute))
+        return Time(*mins_to_hours_and_mins(self.minutes + other.minutes))
 
     def __sub__(self, other: 'Duration') -> 'Time':
-        o_hour, o_minute = other._components
-        return Time(*Time.fix_under_over(
-                self.hour - o_hour,
-                self.minute - o_minute))
+        return Time(*mins_to_hours_and_mins(self.minutes - other.minutes))
 
-    @staticmethod
-    def fix_under_over(hour: int, minute: int):
-        if minute < 0:
-            return Time.fix_under_over(hour - 1, minute + 60)
-        if minute > 60:
-            return Time.fix_under_over(hour + 1, minute - 60)
-        else:
-            return hour, minute
+
+def mins_to_hours_and_mins(mins: int) -> Tuple[int, int]:
+    return mins // 60, mins % 60
 
 
 class Duration:
-    def __init__(self, hour: int, minute: int):
-        self.modifier, self.hour, self.minute = Duration._fix_under_over(hour, minute)
+    def __init__(self, *, hours: int=0, minutes: int):
+        self.minutes = minutes + (hours * 60)
 
     @property
     def is_fifteen_minute_interval(self) -> bool:
-        return self.minute % 15 == 0
-
-    @property
-    def _components(self) -> Tuple[int, int]:
-        return self.hour * self.modifier, self.minute * self.modifier
-
-    @staticmethod
-    def _fix_under_over(hour: int, minute: int) -> Tuple[int, int, int]:
-        if minute <= -60:
-            return Duration._fix_under_over(hour-1, minute+60)
-        elif minute >= 60:
-            return Duration._fix_under_over(hour+1, minute-60)
-        else:
-            return Duration._calc_time_parts(hour, minute)
-
-    @staticmethod
-    def _calc_time_parts(hour: int, minute: int) -> Tuple[int, int, int]:
-        if minute < 0 and hour > 0:
-            return 1, hour-1, minute+60
-        elif minute > 0 and hour < 0:
-            return -1, hour+1, minute-60
-        elif minute == 0 and hour == 0:
-            return 1, 0, 0
-        elif minute <= 0 and hour <= 0:
-            return -1, -hour, -minute
-        else:
-            return 1, hour, minute
+        return self.minutes % 15 == 0
 
     def with_accumulated_adjustment(self, acc_adjustment: 'Duration') -> 'AdjustedDuration':
         return DurationWithAdjustment(self, acc_adjustment).adjust()
@@ -117,18 +74,19 @@ class Duration:
 
     @property
     def adjustments_to_nearest_15s(self) -> Tuple['Duration', 'Duration']:
-        adjustment_up = self.distance_up_to_nearest_15
-        adjustment_down = (adjustment_up - fifteen_minutes
-                           if adjustment_up.minute != Minutes(0)
-                           else Minutes(0))
-        return adjustment_up, adjustment_down
+        if self.is_fifteen_minute_interval:
+            return Duration(minutes=0), Duration(minutes=0)
+        else:
+            adjustment_up = self.distance_up_to_nearest_15
+            adjustment_down = Duration(minutes=15) - adjustment_up
+            return adjustment_up, adjustment_down
 
     @property
     def distance_up_to_nearest_15(self) -> 'Duration':
         if self.is_fifteen_minute_interval:
-            return Minutes(0)
+            return Duration(minutes=0)
         return (Stream(range(1, 15))
-                .map(Minutes)
+                .map(lambda x: Duration(minutes=x))
                 .map(self.__add__)
                 .filter(Duration.is_fifteen_minute_interval)
                 .first)
@@ -136,54 +94,41 @@ class Duration:
     @property
     def distance_down_to_nearest_15(self):
         if self.is_fifteen_minute_interval:
-            return Minutes(0)
+            return Duration(minutes=0)
         return (Stream(range(1, 15))
-                .map(Minutes)
+                .map(lambda x: Duration(minutes=x))
                 .map(self.__sub__)
                 .filter(Duration.is_fifteen_minute_interval)
                 .first)
 
     def __str__(self) -> str:
-        opening = "" if self.modifier == 1 else "negative "
-        if self.hour == 0:
-            return opening + f'{self.minute} mins'
+        opening = "" if self.minutes > 0 else "negative "
+        if self.minutes < 60:
+            return opening + f'{self.minutes} mins'
         else:
-            return opening + f'{self.hour} hours {self.minute} mins'
+            hour, mins = mins_to_hours_and_mins(self.minutes)
+            return opening + f'{hour} hours {mins} mins'
 
     def __eq__(self, other: 'Duration') -> bool:
-        return self._components == other._components
+        return self.minutes == other.minutes
 
     def __hash__(self) -> int:
-        return (hash(self.hour) * 19001) ^ (hash(self.minute) * 31)
+        return (hash(self.minutes) * 19001)
 
     def __add__(self, other: 'Duration') -> 'Duration':
-        s_hour, s_min = self._components
-        o_hour, o_min = other._components
-
-        return Duration(*Time.fix_under_over(
-                s_hour + o_hour,
-                s_min + o_min))
+        return Duration(minutes=(self.minutes + other.minutes))
 
     def __sub__(self, other: 'Duration') -> 'Duration':
-        s_hour, s_min = self._components
-        o_hour, o_min = other._components
-
-        return Duration(*Time.fix_under_over(
-            s_hour - o_hour,
-            s_min - o_min))
+        return Duration(minutes=(self.minutes - other.minutes))
 
     def __abs__(self) -> 'Duration':
-        return Duration(self.hour, self.minute)
+        return Duration(minutes=abs(self.minutes))
 
     def __neg__(self) -> 'Duration':
-        return Duration(*self._components)
+        return Duration(minutes=-self.minutes)
 
-
-# noinspection PyPep8Naming
-def Minutes(minute): return Duration(0, minute)
-
-
-fifteen_minutes: Minutes = Minutes(15)
+    def __int__(self) -> int:
+        return self.minutes
 
 
 class DurationWithAdjustment:
@@ -210,13 +155,13 @@ class AdjustedDuration:
     def force_round_up(self):
         return AdjustedDuration(
                 self.duration,
-                self.adjustment + fifteen_minutes,
+                self.adjustment + Duration(minutes=0),
                 self.acc_adjustment)
 
     def force_round_down(self):
         return AdjustedDuration(
                 self.duration,
-                self.adjustment - fifteen_minutes,
+                self.adjustment - Duration(minutes=0),
                 self.acc_adjustment)
 
     @property
